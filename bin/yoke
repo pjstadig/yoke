@@ -1,0 +1,147 @@
+#!/usr/bin/env ruby
+require 'yaml'
+
+if `git rev-parse --git-dir 2> /dev/null`.empty?
+  $stderr.puts "Not a git repository"
+  exit 1
+end
+
+begin
+  config_path = File.expand_path("~/.yoke")
+  $config = File.exists?(config_path) ? YAML.load(File.read(config_path)) : {}
+  $config["group_email"] ||= {}
+  $config["devs"] ||= {}
+
+  def confirm(val)
+    $stdout.print "You entered '#{val}', is this correct? [Y/n] "
+    c = $stdin.gets.chomp
+    while c != "" && c !~ /^[yYnN]/
+      $stdout.print "Please enter y or n: "
+      c = $stdin.gets.chomp
+    end
+    c == "" || c =~ /^[yY]/
+  end
+
+  def acquire(prompt)
+    $stdout.puts
+    $stdout.puts ">> #{prompt}"
+    val = $stdin.gets.chomp
+    while !confirm(val)
+      $stdout.puts ">> #{prompt}"
+      val = $stdin.gets.chomp
+    end
+    val
+  end
+
+  def acquire_group_email
+    $stdout.print "Missing group email config..."
+    email = acquire("Please enter a group email (i.e. 'safe@sonian.net')")
+    while email !~ /^[^@]*@.*$/
+      email = acquire("Please enter an e-mail with the format [user]@[server]")
+    end
+    email = email.split("@")
+    $config["group_email"] = {
+      "user" => email[0],
+      "server" => email[1]
+    }
+  end
+
+  def acquire_dev(dev)
+    name = acquire("I don't know about #{dev}, what is this person's name? ")
+    $config["devs"][dev] = name
+  end
+
+  def yoke(pair)
+    $stdout.print "Yoking..."
+    pair.each do |dev|
+      if !$config["devs"].has_key?(dev)
+        acquire_dev(dev)
+      end
+    end
+
+    name = "'#{$config["devs"][pair[0]]} and #{$config["devs"][pair[1]]}'"
+    email = "#{$config["group_email"]["user"]}+#{pair[0]}+#{pair[1]}@#{$config["group_email"]["server"]}"
+
+    system("git", "config", "user.name", name)
+    system("git", "config", "user.email", email)
+    $stdout.puts
+    status
+  end
+
+  def unyoke
+    if yoked?
+      $stdout.print "Unyoking..."
+      system("git", "config", "--remove-section", "user")
+      $stdout.puts
+    end
+    status
+  end
+
+  def parse_name(name)
+    name =~ /^'(.*) and (.*)'$/ ? [$1, $2] : []
+  end
+
+  def parse_devs(email)
+    email =~ /^#{$config["group_email"]["user"]}\+([^+]*)\+([^@]*)@#{$config["group_email"]["server"]}$/ ? [$1, $2] : []
+  end
+
+  def yoked?
+    names = parse_name(`git config --get user.name`.chomp)
+    devs = parse_devs(`git config --get user.email`.chomp)
+    names.size == 2 && devs.size == 2
+  end
+
+  def status
+    names = parse_name(`git config --get user.name`.chomp)
+    devs = parse_devs(`git config --get user.email`.chomp)
+    if names.size == 2 && devs.size == 2
+      puts "Currently pairing with #{devs[0]} (#{names[0]}) and #{devs[1]} (#{names[1]})"
+    else
+      puts "Currently solo"
+    end
+  end
+
+  def usage
+    $stderr.puts "Invalid arguments!!!!!111"
+    abort
+  end
+
+  acquire_group_email if $config["group_email"]["user"].nil? || $config["group_email"]["server"].nil?
+  options = {
+    :action => File.basename($0) == "unyoke" ? :unyoke : nil,
+    :pair => []
+  }
+  while op = ARGV.shift
+    case op
+    when "-u"
+      options[:action] ||= :unyoke
+      break
+    else
+      (options[:pair] << op).uniq!
+      if options[:pair].size == 2
+        options[:action] ||= :yoke
+        break
+      end
+    end
+  end
+
+  options[:action] ||= :status
+  usage if ARGV.size > 0 || options[:pair].any? && options[:action] != :yoke
+
+  case options[:action]
+  when :yoke
+    yoke(options[:pair].sort)
+  when :unyoke
+    unyoke
+  when :status
+    status
+  else
+    usage
+  end
+
+  File.open(File.expand_path("~/.yoke"), "w") do |f|
+    f.write($config.to_yaml)
+  end
+rescue Interrupt
+  $stdout.puts "Buh-bye!"
+end
