@@ -113,7 +113,6 @@ begin
     abort
   end
 
-  acquire_group_email if $config["group_email"]["user"].nil? || $config["group_email"]["server"].nil?
   options = {
     :action => File.basename($0) == "unyoke" ? :unyoke : nil,
     :pair => []
@@ -138,6 +137,7 @@ begin
   options[:action] ||= :status
   usage if ARGV.size > 0 || options[:pair].any? && options[:action] != :yoke
 
+  acquire_group_email if ($config["group_email"]["user"].nil? || $config["group_email"]["server"].nil?) && options[:action] != :short_status
   case options[:action]
   when :yoke
     yoke(options[:pair].sort)

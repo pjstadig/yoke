@@ -68,6 +68,28 @@ When you yoke it modifies the config like so:
 _Note: yoke sorts the developers, so a Gravatar can be created for each unique
 pairing.  :)_
 
+Yoke also has a (non-interactive) short status that can be used in scripts.  The
+short status is either the empty string, if going solo, or the pair name:
+
+    ~$ yoke -s
+    ~$ yoke paul jim
+    Missing group email config...
+    >> Please enter a group email (i.e. 'safe@sonian.net')
+    safe@sonian.net
+    You entered 'safe@sonian.net', is this correct? [Y/n] 
+    Yoking...
+    >> I don't know about jim, what is this person's name? 
+    Jim Duey
+    You entered 'Jim Duey', is this correct? [Y/n] 
+    
+    >> I don't know about paul, what is this person's name? 
+    Paul Stadig
+    You entered 'Paul Stadig', is this correct? [Y/n] 
+    
+    Currently pairing with jim (Jim Duey) and paul (Paul Stadig)
+    ~$ yoke -s
+    jim+paul
+
 Installation
 ===
 
