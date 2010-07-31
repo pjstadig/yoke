@@ -101,6 +101,13 @@ begin
     end
   end
 
+  def short_status
+    devs = parse_devs(`git config --get user.email`.chomp)
+    if devs.size == 2
+      puts devs.join("+")
+    end
+  end
+
   def usage
     $stderr.puts "Invalid arguments!!!!!111"
     abort
@@ -115,6 +122,9 @@ begin
     case op
     when "-u"
       options[:action] ||= :unyoke
+      break
+    when "-s"
+      options[:action] ||= :short_status
       break
     else
       (options[:pair] << op).uniq!
@@ -135,6 +145,8 @@ begin
     unyoke
   when :status
     status
+  when :short_status
+    short_status
   else
     usage
   end
